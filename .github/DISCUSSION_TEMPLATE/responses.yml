@@ -51,6 +51,13 @@ body:
     validations:
       required: true
   - type: textarea
+    id: quoted
+    attributes:
+      label: Quoted passage (optional)
+      description: Paste the exact sentence(s) from the constitution your response addresses. If it matches, your response will be anchored as a highlight in the document text. Quote plain text without formatting.
+    validations:
+      required: false
+  - type: textarea
     id: response
     attributes:
       label: Response
