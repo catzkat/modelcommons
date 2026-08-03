@@ -39,17 +39,22 @@ def gql(query, variables):
     return out["data"]
 
 def parse_fields(body):
-    """Extract clause anchor, response type, and response text from the discussion-form body."""
-    anchor, rtype = "general", "comment"
+    """Extract clause anchor, response type, quoted passage, and response text from the discussion-form body."""
+    anchor, rtype, quote = "general", "comment", ""
     m = re.search(r"###\s*Clause\s*\n+\s*\"?#([\w\-]+)", body)
     if m:
         anchor = m.group(1)
     m = re.search(r"###\s*Response type\s*\n+\s*(.+)", body)
     if m and "amendment" in m.group(1).lower():
         rtype = "amendment"
+    m = re.search(r"###\s*Quoted passage[^\n]*\n(.*?)(?=\n###\s|\Z)", body, re.S)
+    if m:
+        quote = m.group(1).strip()
+        if quote.lower() in ("_no response_", "no response"):
+            quote = ""
     m = re.search(r"###\s*Response\s*\n(.*)", body, re.S)
     text = m.group(1).strip() if m else body.strip()
-    return anchor, rtype, text
+    return anchor, rtype, quote, text
 
 responses, cursor = [], None
 while True:
@@ -61,7 +66,7 @@ while True:
             continue
         if (d["category"] or {}).get("slug") != "responses":
             continue
-        anchor, rtype, text = parse_fields(d["body"])
+        anchor, rtype, quote, text = parse_fields(d["body"])
         responses.append({
             "title": d["title"],
             "author": (d["author"] or {}).get("login", "ghost"),
@@ -70,6 +75,7 @@ while True:
             "votes": d["upvoteCount"],
             "anchor": anchor,
             "type": rtype,
+            "quote": quote[:600],
             "body": text[:4000],
         })
     if not conn["pageInfo"]["hasNextPage"]:

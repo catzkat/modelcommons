@@ -62,7 +62,7 @@ if len(votes_all) >= 8:
     p75 = votes_all[max(0, math.ceil(len(votes_all) * 0.25) - 1)]
     THRESHOLD = max(3, p75)
 else:
-    THRESHOLD = 1
+    THRESHOLD = 3
 
 new_discussion = f"https://github.com/{REPO}/discussions/new?category=responses"
 
@@ -161,21 +161,32 @@ footer.site .inner{max-width:var(--content-w);margin:0 auto}
   letter-spacing:.03em;text-transform:uppercase}
 .tag.amendment{background:var(--accent-soft);color:var(--accent)}
 .empty{border:1px dashed var(--line);border-radius:12px;padding:34px;text-align:center;color:var(--muted)}
-/* inline annotations in the reader */
-.annots{margin:14px 0 22px}
-.annot{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;
-  margin:0 0 10px;background:color-mix(in srgb, var(--accent-soft) 45%, var(--bg))}
-.annot summary{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;
-  padding:10px 14px;font-size:13px;color:var(--muted);list-style:none}
-.annot summary::-webkit-details-marker{display:none}
-.annot summary .author{font-weight:600;color:var(--fg)}
-.annot summary .excerpt{flex-basis:100%;color:var(--muted);font-style:italic}
-.annot[open] summary .excerpt{display:none}
-.annot .tag{background:var(--bg);border:1px solid var(--line);color:var(--muted)}
-.annot .tag.amendment{background:var(--accent-soft);color:var(--accent);border-color:transparent}
-.annot .votes{margin-left:0}
-.annot-body{padding:2px 16px 12px;font-size:14.5px}
-.annot-body p{margin:0 0 .8em}
+/* text highlights + annotation rail */
+mark.hl{background:var(--accent-soft);color:inherit;border-bottom:2px solid var(--accent);
+  cursor:pointer;padding:0 1px;border-radius:2px}
+mark.hl:hover{background:color-mix(in srgb, var(--accent) 20%, var(--bg))}
+mark.hl.flash{outline:2px solid var(--accent);outline-offset:1px}
+#notes-btn{border:1px solid var(--line);background:none;color:var(--fg);
+  border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;white-space:nowrap}
+#notes-btn b{color:var(--accent);font-weight:600}
+aside.notes{position:fixed;top:56px;right:0;bottom:0;width:350px;max-width:92vw;
+  background:var(--bg);border-left:1px solid var(--line);overflow-y:auto;z-index:60;
+  transform:translateX(105%);transition:transform .22s ease;box-shadow:-12px 0 40px rgba(0,0,0,.12)}
+aside.notes.open{transform:none}
+.notes-head{position:sticky;top:0;z-index:2;background:var(--bg);display:flex;align-items:center;gap:8px;
+  padding:14px 16px;border-bottom:1px solid var(--line);font-weight:600;font-size:14px}
+.notes-head span{color:var(--muted);font-weight:400}
+#notes-close{margin-left:auto;border:0;background:none;color:var(--muted);font-size:20px;cursor:pointer;line-height:1}
+.notes-sec{padding:16px 16px 4px;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint)}
+.note{margin:6px 12px;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-size:13.5px}
+.note.flash{outline:2px solid var(--accent);outline-offset:1px}
+.note-head{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;color:var(--muted);font-size:12.5px;margin-bottom:6px}
+.note-head .author{font-weight:600;color:var(--fg)}
+.note-head .votes{margin-left:auto}
+.note-quote{border-left:3px solid var(--accent);padding:2px 10px;margin:8px 0;
+  color:var(--muted);font-style:italic;font-size:12.5px}
+.note-body p{margin:0 0 .8em}
+.notes-empty{padding:30px 20px;color:var(--muted);font-size:13.5px;text-align:center}
 @media (max-width: 920px){
   nav.toc{transform:translateX(-105%);transition:transform .2s ease;z-index:50;box-shadow:0 0 40px rgba(0,0,0,.15)}
   nav.toc.open{transform:none}
@@ -185,12 +196,14 @@ footer.site .inner{max-width:var(--content-w);margin:0 auto}
 }
 """
 
-def header(crumb, toc_btn=True):
+def header(crumb, toc_btn=True, notes_btn=False):
     btn = '<button id="menu-btn" aria-label="Toggle contents">Contents</button>' if toc_btn else ""
+    nbtn = (f'<button id="notes-btn" aria-label="Toggle annotations">Annotations <b>{len(responses)}</b></button>'
+            if notes_btn else "")
     return f"""<header class="site">
   <a class="wordmark" href="/">Model Commons&nbsp;<span>/ constitutions</span></a>
   <div class="doc-crumb">{crumb}</div>
-  <div class="hdr-links"><a href="/responses.html">Responses</a><a href="{new_discussion}" rel="noopener">Respond</a>{btn}</div>
+  <div class="hdr-links"><a href="/responses.html">Responses</a><a href="{new_discussion}" rel="noopener">Respond</a>{nbtn}{btn}</div>
 </header>
 <div id="progress"></div>"""
 
@@ -251,25 +264,57 @@ def toc_html(tokens):
 def md_inline(s):
     return markdown.markdown(html.escape(s))
 
-def annot_cards(hid):
-    """Inline annotation cards for highly-supported responses on this section."""
-    hot = [r for r in by_anchor.get(hid, []) if r.get("votes", 0) >= THRESHOLD][:MAX_INLINE]
-    if not hot:
-        return ""
-    cards = []
-    for r in hot:
-        excerpt = re.sub(r"\s+", " ", r.get("body", "")).strip()
-        excerpt = (excerpt[:110] + "…") if len(excerpt) > 110 else excerpt
-        tag = "<span class='tag amendment'>Proposed amendment</span>" if r.get("type") == "amendment" else "<span class='tag'>Response</span>"
-        cards.append(f"""<details class="annot">
-  <summary><span class="votes hot">&#9650; {r.get('votes',0)}</span> {tag}
-    <span class="author">{html.escape(r.get('author',''))}</span>
-    <span class="excerpt">{html.escape(excerpt)}</span></summary>
-  <div class="annot-body">{md_inline(r.get('body',''))}
-    <p class="resp-foot"><a href="{html.escape(r.get('url','#'))}" rel="noopener">Discuss / support on GitHub &rarr;</a>
-    &middot; <a href="responses.html#c-{hid}">All responses to this section &rarr;</a></p></div>
-</details>""")
-    return f"<div class='annots' aria-label='Highly supported public responses'>{''.join(cards)}</div>"
+for _i, _r in enumerate(responses):
+    _r["_id"] = _i
+
+def inject_highlights(html_in):
+    """Wrap each response's quoted passage (if found verbatim in the document) in a <mark>."""
+    n = 0
+    for r in responses:
+        q = re.sub(r"\s+", " ", (r.get("quote") or "")).strip()
+        if len(q) < 12:
+            continue
+        pat = r"\s+".join(re.escape(t) for t in q.split())
+        try:
+            m = re.search(pat, html_in)
+        except re.error:
+            continue
+        if not m or "<" in m.group(0):
+            continue
+        s, e = m.span()
+        html_in = (html_in[:s]
+                   + f"<mark class=\"hl\" data-rid=\"{r['_id']}\" title=\"Annotated — click to view\">"
+                   + html_in[s:e] + "</mark>" + html_in[e:])
+        r["_hl"] = True
+        n += 1
+    return html_in, n
+
+def rail_cards():
+    """Annotation rail: all approved responses in document order, grouped by section."""
+    order = {sid: i for i, (sid, _, _) in enumerate(sections)}
+    rs = sorted(responses, key=lambda r: (order.get(r.get("anchor"), 9999), -r.get("votes", 0)))
+    out, last = [], None
+    for r in rs:
+        sec = section_names.get(r.get("anchor"), "General")
+        if sec != last:
+            out.append(f"<div class='notes-sec'>{html.escape(sec)}</div>")
+            last = sec
+        votes = r.get("votes", 0)
+        hot = votes >= THRESHOLD
+        tag = "<span class='tag amendment'>Proposed amendment</span>" if r.get("type") == "amendment" else ""
+        jump = (f"<a href='#' class='jump' data-rid='{r['_id']}'>Jump to text</a> &middot; "
+                if r.get("_hl") else "")
+        qtext = re.sub(r"\s+", " ", r.get("quote") or "")[:180]
+        quote = f"<div class='note-quote'>{html.escape(qtext)}</div>" if qtext else ""
+        out.append(f"""<div class="note" id="note-{r['_id']}">
+  <div class="note-head">{tag}<span class="author">{html.escape(r.get('author',''))}</span>
+    <span>{html.escape((r.get('created') or '')[:10])}</span>
+    <span class="votes{' hot' if hot else ''}">&#9650; {votes}</span></div>
+  {quote}
+  <div class="note-body">{md_inline(r.get('body',''))}</div>
+  <div class="resp-foot">{jump}<a href="{html.escape(r.get('url','#'))}" rel="noopener">Discuss on GitHub &rarr;</a></div>
+</div>""")
+    return "".join(out)
 
 def heading_extras(m):
     tag, hid, inner = m.group(1), m.group(2), m.group(3)
@@ -278,14 +323,14 @@ def heading_extras(m):
     respond = f"<a href='{new_discussion}&title={quote('Re: ' + re.sub('<[^>]+>', '', inner))}' rel='noopener'>respond</a>"
     return (f"<{tag} id=\"{hid}\">{inner}"
             f"<a class=\"anchor\" href=\"#{hid}\" aria-label=\"Link to this section\">&para;</a>"
-            f"<span class=\"hmeta\">{chip}{respond}</span></{tag}>"
-            f"{annot_cards(hid)}")
+            f"<span class=\"hmeta\">{chip}{respond}</span></{tag}>")
 
 content_html = re.sub(r'<(h[12]) id="([^"]+)">(.*?)</\1>', heading_extras, content_html)
 content_html = re.sub(
     r'<(h3) id="([^"]+)">(.*?)</\1>',
     r'<\1 id="\2">\3<a class="anchor" href="#\2" aria-label="Link to this section">&para;</a></\1>',
     content_html)
+content_html, HL_COUNT = inject_highlights(content_html)
 
 index_page = f"""<!DOCTYPE html>
 <html lang="en">
@@ -297,7 +342,7 @@ index_page = f"""<!DOCTYPE html>
 <style>{CSS}</style>
 </head>
 <body>
-{header("Anthropic &middot; Claude&rsquo;s Constitution &middot; v. 2026-01-20")}
+{header("Anthropic &middot; Claude&rsquo;s Constitution &middot; v. 2026-01-20", notes_btn=True)}
 <div class="wrap">
 <nav class="toc" id="toc" aria-label="Table of contents">
 {toc_html(toc_tokens)}
@@ -320,8 +365,36 @@ index_page = f"""<!DOCTYPE html>
 </article>
 </main>
 </div>
+<aside class="notes" id="notes" aria-label="Public annotations">
+  <div class="notes-head">Annotations <span>{len(responses)}</span><button id="notes-close" aria-label="Close">&times;</button></div>
+  {rail_cards() or f'<div class="notes-empty">No approved responses yet.<br><br><a href="{new_discussion}" rel="noopener">Be the first to respond &rarr;</a></div>'}
+</aside>
 {FOOTER}
 <script>{BASE_JS}</script>
+<script>
+(function(){{
+  var notes=document.getElementById('notes');
+  var nbtn=document.getElementById('notes-btn');
+  function open(){{notes.classList.add('open')}}
+  function flash(el){{el.classList.add('flash');setTimeout(function(){{el.classList.remove('flash')}},1600)}}
+  if(nbtn)nbtn.addEventListener('click',function(){{notes.classList.toggle('open')}});
+  document.getElementById('notes-close').addEventListener('click',function(){{notes.classList.remove('open')}});
+  [].slice.call(document.querySelectorAll('mark.hl')).forEach(function(m){{
+    m.addEventListener('click',function(){{
+      open();
+      var c=document.getElementById('note-'+m.getAttribute('data-rid'));
+      if(c){{c.scrollIntoView({{block:'center',behavior:'smooth'}});flash(c);}}
+    }});
+  }});
+  [].slice.call(document.querySelectorAll('.note .jump')).forEach(function(j){{
+    j.addEventListener('click',function(e){{
+      e.preventDefault();
+      var m=document.querySelector('mark.hl[data-rid="'+j.getAttribute('data-rid')+'"]');
+      if(m){{m.scrollIntoView({{block:'center',behavior:'smooth'}});flash(m);}}
+    }});
+  }});
+}})();
+</script>
 {'<script type="application/json" class="js-hypothesis-config">{"openSidebar": false, "showHighlights": true}</script><script src="https://hypothes.is/embed.js" async></script>' if INCLUDE_HYPOTHESIS else ''}
 </body>
 </html>
@@ -440,6 +513,13 @@ body:
         - Proposed amendment (includes exact replacement wording)
     validations:
       required: true
+  - type: textarea
+    id: quoted
+    attributes:
+      label: Quoted passage (optional)
+      description: Paste the exact sentence(s) from the constitution your response addresses. If it matches, your response will be anchored as a highlight in the document text. Quote plain text without formatting.
+    validations:
+      required: false
   - type: textarea
     id: response
     attributes:
