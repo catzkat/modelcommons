@@ -99,6 +99,21 @@ footer.site .inner{max-width:var(--content-w);margin:0 auto}
   letter-spacing:.03em;text-transform:uppercase}
 .tag.amendment{background:var(--accent-soft);color:var(--accent)}
 .empty{border:1px dashed var(--line);border-radius:12px;padding:34px;text-align:center;color:var(--muted)}
+/* inline annotations in the reader */
+.annots{margin:14px 0 22px}
+.annot{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;
+  margin:0 0 10px;background:color-mix(in srgb, var(--accent-soft) 45%, var(--bg))}
+.annot summary{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;
+  padding:10px 14px;font-size:13px;color:var(--muted);list-style:none}
+.annot summary::-webkit-details-marker{display:none}
+.annot summary .author{font-weight:600;color:var(--fg)}
+.annot summary .excerpt{flex-basis:100%;color:var(--muted);font-style:italic}
+.annot[open] summary .excerpt{display:none}
+.annot .tag{background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.annot .tag.amendment{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.annot .votes{margin-left:0}
+.annot-body{padding:2px 16px 12px;font-size:14.5px}
+.annot-body p{margin:0 0 .8em}
 @media (max-width: 920px){
   nav.toc{transform:translateX(-105%);transition:transform .2s ease;z-index:50;box-shadow:0 0 40px rgba(0,0,0,.15)}
   nav.toc.open{transform:none}
@@ -720,7 +735,6 @@ footer.site .inner{max-width:var(--content-w);margin:0 auto}
   addEventListener('scroll',spy,{passive:true});spy();
 })();
 </script>
-<script type="application/json" class="js-hypothesis-config">{"openSidebar": false, "showHighlights": true}</script>
-<script src="https://hypothes.is/embed.js" async></script>
+
 </body>
 </html>
