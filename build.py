@@ -62,7 +62,7 @@ if len(votes_all) >= 8:
     p75 = votes_all[max(0, math.ceil(len(votes_all) * 0.25) - 1)]
     THRESHOLD = max(3, p75)
 else:
-    THRESHOLD = 3
+    THRESHOLD = 1
 
 new_discussion = f"https://github.com/{REPO}/discussions/new?category=responses"
 
