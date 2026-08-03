@@ -1,0 +1,46 @@
+name: Build site
+
+on:
+  discussion:
+    types: [created, edited, deleted, labeled, unlabeled]
+  schedule:
+    - cron: "17 6 * * *"   # daily refresh (picks up upvote changes + upstream constitution edits)
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: [build.py, fetch_responses.py]
+
+permissions:
+  contents: write
+  discussions: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get constitution source
+        run: git clone --depth 1 https://github.com/anthropics/claude-constitution.git /tmp/claude-constitution
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install markdown
+
+      - name: Fetch approved responses
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python fetch_responses.py
+
+      - name: Build site
+        run: python build.py
+
+      - name: Commit and push if changed
+        run: |
+          git config user.name "modelcommons-bot"
+          git config user.email "actions@github.com"
+          git add -A
+          git diff --cached --quiet && echo "no changes" || (git commit -m "Rebuild site" && git push)

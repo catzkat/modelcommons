@@ -1,0 +1,59 @@
+title: "Response: <short summary>"
+labels: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for responding to Claude's Constitution. Substantive responses are reviewed and, if approved,
+        published at modelcommons.org with attribution to your GitHub username. Upvote this discussion to
+        support it once posted.
+  - type: dropdown
+    id: clause
+    attributes:
+      label: Clause
+      description: Which section of the constitution does this respond to?
+      options:
+        - "#general — the document as a whole"
+        - "#overview — Overview"
+        - "#claude-and-the-mission-of-anthropic — Claude and the mission of Anthropic"
+        - "#our-approach-to-claudes-constitution — Our approach to Claude’s constitution"
+        - "#claudes-core-values — Claude’s core values"
+        - "#being-helpful — Being helpful"
+        - "#why-helpfulness-is-one-of-claudes-most-important-traits — Why helpfulness is one of Claude’s most important traits"
+        - "#what-constitutes-genuine-helpfulness — What constitutes genuine helpfulness"
+        - "#navigating-helpfulness-across-principals — Navigating helpfulness across principals"
+        - "#balancing-helpfulness-with-other-values — Balancing helpfulness with other values"
+        - "#following-anthropics-guidelines — Following Anthropic’s guidelines"
+        - "#being-broadly-ethical — Being broadly ethical"
+        - "#being-honest — Being honest"
+        - "#avoiding-harm — Avoiding harm"
+        - "#having-broadly-good-values-and-judgment — Having broadly good values and judgment"
+        - "#being-broadly-safe — Being broadly safe"
+        - "#safe-behaviors — Safe behaviors"
+        - "#how-we-think-about-corrigibility — How we think about corrigibility"
+        - "#claudes-nature — Claude’s nature"
+        - "#some-of-our-views-on-claudes-nature — Some of our views on Claude’s nature"
+        - "#claude-as-a-novel-entity — Claude as a novel entity"
+        - "#claudes-wellbeing-and-psychological-stability — Claude’s wellbeing and psychological stability"
+        - "#concluding-thoughts — Concluding thoughts"
+        - "#acknowledging-open-problems — Acknowledging open problems"
+        - "#on-the-word-constitution — On the word “constitution”"
+        - "#a-final-word — A final word"
+    validations:
+      required: true
+  - type: dropdown
+    id: type
+    attributes:
+      label: Response type
+      options:
+        - Comment
+        - Proposed amendment (includes exact replacement wording)
+    validations:
+      required: true
+  - type: textarea
+    id: response
+    attributes:
+      label: Response
+      description: For proposed amendments, quote the current wording and give your exact proposed wording, then the rationale.
+    validations:
+      required: true
