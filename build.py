@@ -20,6 +20,8 @@ SRC = pathlib.Path(os.environ.get("CONSTITUTION_MD", "/tmp/claude-constitution/2
 OUT_DIR = pathlib.Path(os.environ.get("OUT_DIR", str(HERE)))
 REPO = os.environ.get("GITHUB_REPOSITORY", "catzkat/modelcommons")  # owner/repo
 RESPONSES = HERE / "responses.json"
+INCLUDE_HYPOTHESIS = False   # set True to re-enable the Hypothes.is annotation layer
+MAX_INLINE = 3               # max highly-supported responses shown inline per section
 
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 today = datetime.date.today().strftime("%B %-d, %Y")
@@ -56,7 +58,7 @@ for v in by_anchor.values():
     v.sort(key=lambda r: (-r.get("votes", 0), r.get("created", "")))
 
 votes_all = sorted((r.get("votes", 0) for r in responses), reverse=True)
-if votes_all:
+if len(votes_all) >= 8:
     p75 = votes_all[max(0, math.ceil(len(votes_all) * 0.25) - 1)]
     THRESHOLD = max(3, p75)
 else:
@@ -159,6 +161,21 @@ footer.site .inner{max-width:var(--content-w);margin:0 auto}
   letter-spacing:.03em;text-transform:uppercase}
 .tag.amendment{background:var(--accent-soft);color:var(--accent)}
 .empty{border:1px dashed var(--line);border-radius:12px;padding:34px;text-align:center;color:var(--muted)}
+/* inline annotations in the reader */
+.annots{margin:14px 0 22px}
+.annot{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;
+  margin:0 0 10px;background:color-mix(in srgb, var(--accent-soft) 45%, var(--bg))}
+.annot summary{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer;
+  padding:10px 14px;font-size:13px;color:var(--muted);list-style:none}
+.annot summary::-webkit-details-marker{display:none}
+.annot summary .author{font-weight:600;color:var(--fg)}
+.annot summary .excerpt{flex-basis:100%;color:var(--muted);font-style:italic}
+.annot[open] summary .excerpt{display:none}
+.annot .tag{background:var(--bg);border:1px solid var(--line);color:var(--muted)}
+.annot .tag.amendment{background:var(--accent-soft);color:var(--accent);border-color:transparent}
+.annot .votes{margin-left:0}
+.annot-body{padding:2px 16px 12px;font-size:14.5px}
+.annot-body p{margin:0 0 .8em}
 @media (max-width: 920px){
   nav.toc{transform:translateX(-105%);transition:transform .2s ease;z-index:50;box-shadow:0 0 40px rgba(0,0,0,.15)}
   nav.toc.open{transform:none}
@@ -231,6 +248,29 @@ def toc_html(tokens):
     out.append("</ol>")
     return "\n".join(out)
 
+def md_inline(s):
+    return markdown.markdown(html.escape(s))
+
+def annot_cards(hid):
+    """Inline annotation cards for highly-supported responses on this section."""
+    hot = [r for r in by_anchor.get(hid, []) if r.get("votes", 0) >= THRESHOLD][:MAX_INLINE]
+    if not hot:
+        return ""
+    cards = []
+    for r in hot:
+        excerpt = re.sub(r"\s+", " ", r.get("body", "")).strip()
+        excerpt = (excerpt[:110] + "…") if len(excerpt) > 110 else excerpt
+        tag = "<span class='tag amendment'>Proposed amendment</span>" if r.get("type") == "amendment" else "<span class='tag'>Response</span>"
+        cards.append(f"""<details class="annot">
+  <summary><span class="votes hot">&#9650; {r.get('votes',0)}</span> {tag}
+    <span class="author">{html.escape(r.get('author',''))}</span>
+    <span class="excerpt">{html.escape(excerpt)}</span></summary>
+  <div class="annot-body">{md_inline(r.get('body',''))}
+    <p class="resp-foot"><a href="{html.escape(r.get('url','#'))}" rel="noopener">Discuss / support on GitHub &rarr;</a>
+    &middot; <a href="responses.html#c-{hid}">All responses to this section &rarr;</a></p></div>
+</details>""")
+    return f"<div class='annots' aria-label='Highly supported public responses'>{''.join(cards)}</div>"
+
 def heading_extras(m):
     tag, hid, inner = m.group(1), m.group(2), m.group(3)
     n = len(by_anchor.get(hid, []))
@@ -238,7 +278,8 @@ def heading_extras(m):
     respond = f"<a href='{new_discussion}&title={quote('Re: ' + re.sub('<[^>]+>', '', inner))}' rel='noopener'>respond</a>"
     return (f"<{tag} id=\"{hid}\">{inner}"
             f"<a class=\"anchor\" href=\"#{hid}\" aria-label=\"Link to this section\">&para;</a>"
-            f"<span class=\"hmeta\">{chip}{respond}</span></{tag}>")
+            f"<span class=\"hmeta\">{chip}{respond}</span></{tag}>"
+            f"{annot_cards(hid)}")
 
 content_html = re.sub(r'<(h[12]) id="([^"]+)">(.*?)</\1>', heading_extras, content_html)
 content_html = re.sub(
@@ -281,16 +322,12 @@ index_page = f"""<!DOCTYPE html>
 </div>
 {FOOTER}
 <script>{BASE_JS}</script>
-<script type="application/json" class="js-hypothesis-config">{{"openSidebar": false, "showHighlights": true}}</script>
-<script src="https://hypothes.is/embed.js" async></script>
+{'<script type="application/json" class="js-hypothesis-config">{"openSidebar": false, "showHighlights": true}</script><script src="https://hypothes.is/embed.js" async></script>' if INCLUDE_HYPOTHESIS else ''}
 </body>
 </html>
 """
 
 # ---------------- responses.html ----------------
-def md_inline(s):
-    return markdown.markdown(html.escape(s))
-
 groups = []
 ordered = [sid for sid, _, _ in sections if sid in by_anchor]
 extras = [a for a in by_anchor if a not in section_names]
