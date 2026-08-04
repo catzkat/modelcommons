@@ -6,10 +6,38 @@ A discussion is published iff it has the label 'approved' and is in the 'Respons
 Upvotes = the discussion's native upvote count.
 """
 
-import json, os, re, sys, urllib.request
+import glob, json, os, re, sys, urllib.request
 
 TOKEN = os.environ["GITHUB_TOKEN"]
 OWNER, REPO = os.environ.get("GITHUB_REPOSITORY", "catzkat/modelcommons").split("/")
+OUT_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "responses.json")
+
+
+def constitution_version_iso():
+    """ISO date of the current constitution version, from its dated source filename
+    (mirrors build.py's resolution). Used to stamp responses with the version in effect."""
+    env = os.environ.get("CONSTITUTION_MD")
+    if env:
+        name = os.path.basename(env)
+    else:
+        files = sorted(glob.glob("/tmp/claude-constitution/*-constitution.md"))
+        name = os.path.basename(files[-1]) if files else "20260120-constitution.md"
+    m = re.match(r"(\d{4})(\d{2})(\d{2})", name)
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}" if m else "2026-01-20"
+
+
+CURRENT_VERSION = constitution_version_iso()
+
+# Freeze the version stamp at first sight: keep any version already recorded for a
+# discussion, so a later constitution update doesn't retroactively re-stamp old responses.
+prev_versions = {}
+try:
+    with open(OUT_PATH, encoding="utf-8") as f:
+        for _r in json.load(f):
+            if _r.get("url") and _r.get("version"):
+                prev_versions[_r["url"]] = _r["version"]
+except (FileNotFoundError, json.JSONDecodeError):
+    pass
 
 QUERY = """
 query($owner:String!, $repo:String!, $cursor:String) {
@@ -77,12 +105,12 @@ while True:
             "type": rtype,
             "quote": quote[:600],
             "body": text[:4000],
+            "version": prev_versions.get(d["url"], CURRENT_VERSION),
         })
     if not conn["pageInfo"]["hasNextPage"]:
         break
     cursor = conn["pageInfo"]["endCursor"]
 
-out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "responses.json")
-with open(out, "w", encoding="utf-8") as f:
+with open(OUT_PATH, "w", encoding="utf-8") as f:
     json.dump(responses, f, indent=2, ensure_ascii=False)
-print(f"wrote {len(responses)} approved responses to {out}")
+print(f"wrote {len(responses)} approved responses to {OUT_PATH} (version stamp: {CURRENT_VERSION})")

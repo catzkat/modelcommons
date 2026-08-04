@@ -22,7 +22,20 @@ from urllib.parse import quote
 import markdown
 
 HERE = pathlib.Path(__file__).parent
-SRC = pathlib.Path(os.environ.get("CONSTITUTION_MD", "/tmp/claude-constitution/20260120-constitution.md"))
+# Constitution source: honor CONSTITUTION_MD, else pick the latest dated "YYYYMMDD-constitution.md"
+# from the cloned repo so a newly-published version is picked up automatically.
+_const_env = os.environ.get("CONSTITUTION_MD")
+if _const_env:
+    SRC = pathlib.Path(_const_env)
+else:
+    _const_files = sorted(pathlib.Path("/tmp/claude-constitution").glob("*-constitution.md"))
+    SRC = _const_files[-1] if _const_files else pathlib.Path("/tmp/claude-constitution/20260120-constitution.md")
+_const_m = re.match(r"(\d{4})(\d{2})(\d{2})", SRC.name)
+if _const_m:
+    _const_date = datetime.date(*map(int, _const_m.groups()))
+    CONSTITUTION_DATE, CONSTITUTION_ISO = _const_date.strftime("%B %-d, %Y"), _const_date.strftime("%Y-%m-%d")
+else:
+    CONSTITUTION_DATE, CONSTITUTION_ISO = "January 20, 2026", "2026-01-20"
 MODEL_SPEC_MD = pathlib.Path(os.environ.get("MODEL_SPEC_MD", "/tmp/model-spec/model_spec.md"))
 OUT_DIR = pathlib.Path(os.environ.get("OUT_DIR", str(HERE)))
 REPO = os.environ.get("GITHUB_REPOSITORY", "catzkat/modelcommons")  # owner/repo
@@ -80,12 +93,12 @@ new_discussion = f"https://github.com/{REPO}/discussions/new?category=responses"
 CSS = r"""
 :root{
   --bg:#ffffff; --fg:#16181d; --muted:#6b7280; --faint:#9ca3af;
-  --line:#e5e7eb; --accent:#2563eb; --accent-soft:#eff6ff;
+  --line:#e5e7eb; --accent:#2563eb; --accent-soft:#eff6ff; --warn:#b45309;
   --sidebar-w:300px; --content-w:46rem;
 }
 @media (prefers-color-scheme: dark){
   :root{ --bg:#0f1115; --fg:#e7e9ee; --muted:#9aa1ad; --faint:#6b7280;
-         --line:#23262d; --accent:#7aa2ff; --accent-soft:#161c2a; }
+         --line:#23262d; --accent:#7aa2ff; --accent-soft:#161c2a; --warn:#d9a441; }
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -164,6 +177,9 @@ footer.site .inner{max-width:var(--content-w);margin:0 auto}
 .votes{margin-left:auto;font-variant-numeric:tabular-nums;border:1px solid var(--line);
   border-radius:999px;padding:1px 10px;font-size:12.5px;white-space:nowrap}
 .votes.hot{color:var(--accent);border-color:var(--accent)}
+.ver{border:1px solid var(--line);border-radius:999px;padding:0 8px;font-size:11.5px;
+  color:var(--faint);white-space:nowrap}
+.ver.stale{color:var(--warn);border-color:var(--warn)}
 .resp-body{font-size:15px}
 .resp-body p{margin:0 0 .9em}
 .resp-foot{font-size:12.5px}
@@ -307,6 +323,19 @@ def toc_html(tokens):
 def md_inline(s):
     return markdown.markdown(html.escape(s))
 
+def version_chip(r):
+    """Small badge showing which constitution version a response was written against.
+    Marked 'stale' when it predates the current version (the wording may have changed)."""
+    v = r.get("version") or CONSTITUTION_ISO   # ISO date, frozen at first fetch
+    try:
+        label = datetime.date.fromisoformat(v).strftime("%b %-d, %Y")
+    except ValueError:
+        label = v
+    if v == CONSTITUTION_ISO:
+        return f'<span class="ver" title="Written about the current version">{label} version</span>'
+    return (f'<span class="ver stale" title="Written about an earlier version — the current '
+            f'wording may differ">{label} version &middot; earlier</span>')
+
 for _i, _r in enumerate(responses):
     _r["_id"] = _i
 
@@ -352,6 +381,7 @@ def rail_cards():
         out.append(f"""<div class="note" id="note-{r['_id']}">
   <div class="note-head">{tag}<span class="author">{html.escape(r.get('author',''))}</span>
     <span>{html.escape((r.get('created') or '')[:10])}</span>
+    {version_chip(r)}
     <span class="votes{' hot' if hot else ''}">&#9650; {votes}</span></div>
   {quote}
   <div class="note-body">{md_inline(r.get('body',''))}</div>
@@ -385,7 +415,7 @@ index_page = f"""<!DOCTYPE html>
 <style>{CSS}</style>
 </head>
 <body>
-{header("Anthropic &middot; Claude&rsquo;s Constitution &middot; v. 2026-01-20", notes_btn=True)}
+{header(f"Anthropic &middot; Claude&rsquo;s Constitution &middot; v. {CONSTITUTION_ISO}", notes_btn=True)}
 <div class="wrap">
 <nav class="toc" id="toc" aria-label="Table of contents">
 {toc_html(toc_tokens)}
@@ -399,7 +429,7 @@ index_page = f"""<!DOCTYPE html>
     <span class="badge">License: CC0 1.0</span>
     <dl>
       <dt>Publisher</dt><dd>Anthropic PBC</dd>
-      <dt>Version</dt><dd>January 20, 2026 (current)</dd>
+      <dt>Version</dt><dd>{CONSTITUTION_DATE} (current)</dd>
       <dt>Source</dt><dd><a href="https://github.com/anthropics/claude-constitution" rel="noopener">github.com/anthropics/claude-constitution</a> &middot; <a href="https://www.anthropic.com/constitution" rel="noopener">anthropic.com/constitution</a></dd>
       <dt>Archive updated</dt><dd>{today}</dd>
     </dl>
@@ -458,6 +488,7 @@ for a in ordered + extras:
         cards.append(f"""<div class="resp{'' if hot else ''}" data-votes="{votes}">
   <div class="resp-head">{tag}<span class="author">{html.escape(r.get('author','anonymous'))}</span>
     <span>{html.escape((r.get('created') or '')[:10])}</span>
+    {version_chip(r)}
     <span class="votes{' hot' if hot else ''}" title="Support signals from GitHub accounts">&#9650; {votes}</span></div>
   <div class="resp-body">{md_inline(r.get('body',''))}</div>
   <div class="resp-foot"><a href="{html.escape(r.get('url','#'))}" rel="noopener">Discuss / support on GitHub &rarr;</a></div>
@@ -494,6 +525,8 @@ responses_page = f"""<!DOCTYPE html>
     linked discussion &mdash; they rank responses for readability; they are not a poll, a vote, or a claim about public
     opinion. &ldquo;Most supported&rdquo; currently means {THRESHOLD}+ signals. Responses marked
     <span class="tag amendment">Proposed amendment</span> include exact replacement language for a specific clause.
+    Each response shows the <span class="ver">document version</span> it was written against; one marked
+    <span class="ver stale">earlier</span> predates the current text, so the wording it addresses may since have changed.
   </div>
 
   <div class="resp-controls">
@@ -649,7 +682,7 @@ resp_label = f"{n_resp} public response{'s' if n_resp != 1 else ''}"
 constitution_card = f"""  <a class="doc-card" href="/{CONSTITUTION_HTML}">
     <div class="doc-card-main">
       <div class="doc-card-title">Claude&rsquo;s Constitution</div>
-      <div class="doc-card-meta">Anthropic PBC &middot; Version January 20, 2026</div>
+      <div class="doc-card-meta">Anthropic PBC &middot; Version {CONSTITUTION_DATE}</div>
       <p class="doc-card-desc">Anthropic&rsquo;s foundational description of Claude&rsquo;s intended values and behavior.</p>
     </div>
     <div class="doc-card-stats">

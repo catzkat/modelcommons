@@ -8,7 +8,8 @@
     "anchor": "safe-behaviors",
     "type": "comment",
     "quote": "Part of the reason",
-    "body": "\"The entire reason\""
+    "body": "\"The entire reason\"",
+    "version": "2026-01-20"
   },
   {
     "title": "Re: Our approach to Claude’s constitution",
@@ -19,6 +20,7 @@
     "anchor": "being-honest",
     "type": "amendment",
     "quote": "",
-    "body": "test"
+    "body": "test",
+    "version": "2026-01-20"
   }
 ]
