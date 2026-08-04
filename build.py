@@ -6,7 +6,8 @@ Inputs:
   - responses.json (approved public responses, produced by fetch_responses.py; optional)
 
 Outputs (to env OUT_DIR, default: this script's directory):
-  - index.html       the constitution reader
+  - index.html                 the landing page (archive overview)
+  - claude-constitution.html   the constitution reader
   - responses.html   approved responses, grouped by clause, with support counts
   - .github/DISCUSSION_TEMPLATE/responses.yml  (clause dropdown kept in sync)
 """
@@ -22,6 +23,7 @@ REPO = os.environ.get("GITHUB_REPOSITORY", "catzkat/modelcommons")  # owner/repo
 RESPONSES = HERE / "responses.json"
 INCLUDE_HYPOTHESIS = False   # set True to re-enable the Hypothes.is annotation layer
 MAX_INLINE = 3               # max highly-supported responses shown inline per section
+CONSTITUTION_HTML = "claude-constitution.html"  # filename for the constitution reader (index.html is the landing page)
 
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 today = datetime.date.today().strftime("%B %-d, %Y")
@@ -193,6 +195,29 @@ aside.notes.open{transform:none}
   main,footer.site{margin-left:0}
   main{padding:80px 22px 90px}
   #menu-btn{display:block}
+}
+/* landing */
+article.landing{max-width:52rem}
+.eyebrow{text-transform:uppercase;letter-spacing:.09em;font-size:12px;color:var(--faint);margin:0 0 16px;font-weight:600}
+.landing .doc-title{font-size:40px;line-height:1.12;max-width:15em;margin-bottom:18px}
+.landing .doc-sub{font-size:17px;line-height:1.55;max-width:33em;margin-bottom:52px}
+.collection-h{font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin:0 0 16px}
+.doc-card{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-start;justify-content:space-between;
+  border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:0 0 14px;color:inherit;
+  transition:border-color .15s ease,background .15s ease}
+.doc-card:hover{text-decoration:none;border-color:var(--accent);background:var(--accent-soft)}
+.doc-card-title{font-size:20px;font-weight:700;letter-spacing:-.012em;color:var(--fg)}
+.doc-card-meta{font-size:13px;color:var(--muted);margin-top:4px}
+.doc-card-desc{font-size:14.5px;color:var(--muted);margin:12px 0 0;max-width:34em}
+.doc-card-stats{display:flex;flex-direction:column;gap:9px;align-items:flex-end;text-align:right;
+  font-size:13px;color:var(--muted);white-space:nowrap}
+.doc-card-go{color:var(--accent);font-weight:600}
+.landing-hint{color:var(--faint);font-size:13px;margin:2px 0 0}
+.landing-about{border-top:1px solid var(--line);padding-top:30px;margin-top:56px}
+.landing-about p{color:var(--muted);font-size:14.5px;line-height:1.6;max-width:38em}
+@media (max-width:920px){
+  .landing .doc-title{font-size:32px}
+  .doc-card-stats{align-items:flex-start;text-align:left}
 }
 """
 
@@ -419,7 +444,7 @@ for a in ordered + extras:
   <div class="resp-body">{md_inline(r.get('body',''))}</div>
   <div class="resp-foot"><a href="{html.escape(r.get('url','#'))}" rel="noopener">Discuss / support on GitHub &rarr;</a></div>
 </div>""")
-    link = f"index.html#{a}" if a in section_names else "index.html"
+    link = f"{CONSTITUTION_HTML}#{a}" if a in section_names else CONSTITUTION_HTML
     groups.append(f"""<section class="clause-group" id="c-{a}">
   <h2><a href="{link}">&sect; {html.escape(name)}</a></h2>
   {''.join(cards)}
@@ -529,13 +554,70 @@ body:
       required: true
 """
 
+# ---------------- index.html (landing) ----------------
+n_resp = len(responses)
+resp_label = f"{n_resp} public response{'s' if n_resp != 1 else ''}"
+
+landing_page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Model Commons &mdash; the public record of AI&rsquo;s governing documents</title>
+<meta name="description" content="Model Commons preserves the foundational documents that define how AI systems are meant to behave — reproduced verbatim and opened to clause-by-clause public response. Currently archiving Claude's Constitution.">
+<style>{CSS}
+footer.site{{margin-left:0}}
+</style>
+</head>
+<body>
+{header("", toc_btn=False)}
+<main style="margin-left:0">
+<article class="landing">
+  <p class="eyebrow">An independent archive</p>
+  <h1 class="doc-title">The public record of AI&rsquo;s governing documents.</h1>
+  <p class="doc-sub">Model Commons preserves the foundational documents that define how AI systems are meant to
+  behave &mdash; reproduced verbatim, and opened to public response, clause by clause.</p>
+
+  <h2 class="collection-h">In the archive</h2>
+  <a class="doc-card" href="/{CONSTITUTION_HTML}">
+    <div class="doc-card-main">
+      <div class="doc-card-title">Claude&rsquo;s Constitution</div>
+      <div class="doc-card-meta">Anthropic PBC &middot; Version January 20, 2026</div>
+      <p class="doc-card-desc">Anthropic&rsquo;s foundational description of Claude&rsquo;s intended values and behavior.</p>
+    </div>
+    <div class="doc-card-stats">
+      <span class="badge">CC0 1.0</span>
+      <span>{resp_label}</span>
+      <span class="doc-card-go">Read &rarr;</span>
+    </div>
+  </a>
+  <p class="landing-hint">More documents as they&rsquo;re published.</p>
+
+  <div class="landing-about">
+    <h2 class="collection-h">How it works</h2>
+    <p>Each document is reproduced in full from its official source. Readers respond to specific clauses through
+    GitHub Discussions; substantive, civil responses are reviewed and published alongside the text they address.
+    Nothing here is a poll or an endorsement &mdash; it is a durable, public record of the arguments.</p>
+    <p><a href="/responses.html">Browse public responses &rarr;</a> &nbsp;&middot;&nbsp;
+       <a href="{new_discussion}" rel="noopener">Add a response &rarr;</a></p>
+  </div>
+</article>
+</main>
+{FOOTER}
+<script>{BASE_JS}</script>
+</body>
+</html>
+"""
+
 # ---------------- write ----------------
-(OUT_DIR / "index.html").write_text(index_page, encoding="utf-8")
+(OUT_DIR / "index.html").write_text(landing_page, encoding="utf-8")
+(OUT_DIR / CONSTITUTION_HTML).write_text(index_page, encoding="utf-8")
 (OUT_DIR / "responses.html").write_text(responses_page, encoding="utf-8")
 tpl_dir = OUT_DIR / ".github" / "DISCUSSION_TEMPLATE"
 tpl_dir.mkdir(parents=True, exist_ok=True)
 (tpl_dir / "responses.yml").write_text(form, encoding="utf-8")
 
-print(f"index.html      {len(index_page):,} bytes")
+print(f"index.html      {len(landing_page):,} bytes (landing)")
+print(f"{CONSTITUTION_HTML}  {len(index_page):,} bytes (constitution reader)")
 print(f"responses.html  {len(responses_page):,} bytes ({len(responses)} responses, threshold {THRESHOLD})")
 print(f"sections: {len(sections)}; anchors with responses: {len(by_anchor)}")

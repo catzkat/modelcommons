@@ -132,6 +132,29 @@ aside.notes.open{transform:none}
   main{padding:80px 22px 90px}
   #menu-btn{display:block}
 }
+/* landing */
+article.landing{max-width:52rem}
+.eyebrow{text-transform:uppercase;letter-spacing:.09em;font-size:12px;color:var(--faint);margin:0 0 16px;font-weight:600}
+.landing .doc-title{font-size:40px;line-height:1.12;max-width:15em;margin-bottom:18px}
+.landing .doc-sub{font-size:17px;line-height:1.55;max-width:33em;margin-bottom:52px}
+.collection-h{font-size:12.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:600;margin:0 0 16px}
+.doc-card{display:flex;flex-wrap:wrap;gap:18px 28px;align-items:flex-start;justify-content:space-between;
+  border:1px solid var(--line);border-radius:14px;padding:22px 24px;margin:0 0 14px;color:inherit;
+  transition:border-color .15s ease,background .15s ease}
+.doc-card:hover{text-decoration:none;border-color:var(--accent);background:var(--accent-soft)}
+.doc-card-title{font-size:20px;font-weight:700;letter-spacing:-.012em;color:var(--fg)}
+.doc-card-meta{font-size:13px;color:var(--muted);margin-top:4px}
+.doc-card-desc{font-size:14.5px;color:var(--muted);margin:12px 0 0;max-width:34em}
+.doc-card-stats{display:flex;flex-direction:column;gap:9px;align-items:flex-end;text-align:right;
+  font-size:13px;color:var(--muted);white-space:nowrap}
+.doc-card-go{color:var(--accent);font-weight:600}
+.landing-hint{color:var(--faint);font-size:13px;margin:2px 0 0}
+.landing-about{border-top:1px solid var(--line);padding-top:30px;margin-top:56px}
+.landing-about p{color:var(--muted);font-size:14.5px;line-height:1.6;max-width:38em}
+@media (max-width:920px){
+  .landing .doc-title{font-size:32px}
+  .doc-card-stats{align-items:flex-start;text-align:left}
+}
 </style>
 </head>
 <body>
@@ -164,7 +187,7 @@ aside.notes.open{transform:none}
   </div>
 
   <section class="clause-group" id="c-being-honest">
-  <h2><a href="index.html#being-honest">&sect; Being honest</a></h2>
+  <h2><a href="claude-constitution.html#being-honest">&sect; Being honest</a></h2>
   <div class="resp" data-votes="1">
   <div class="resp-head"><span class='tag amendment'>Proposed amendment</span> <span class="author">catzkat</span>
     <span>2026-08-03</span>
@@ -173,7 +196,7 @@ aside.notes.open{transform:none}
   <div class="resp-foot"><a href="https://github.com/catzkat/modelcommons/discussions/1" rel="noopener">Discuss / support on GitHub &rarr;</a></div>
 </div>
 </section><section class="clause-group" id="c-safe-behaviors">
-  <h2><a href="index.html#safe-behaviors">&sect; Safe behaviors</a></h2>
+  <h2><a href="claude-constitution.html#safe-behaviors">&sect; Safe behaviors</a></h2>
   <div class="resp" data-votes="1">
   <div class="resp-head"><span class="author">catzkat</span>
     <span>2026-08-03</span>
