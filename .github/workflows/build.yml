@@ -23,6 +23,9 @@ jobs:
       - name: Get constitution source
         run: git clone --depth 1 https://github.com/anthropics/claude-constitution.git /tmp/claude-constitution
 
+      - name: Get OpenAI Model Spec source
+        run: git clone --depth 1 https://github.com/openai/model_spec.git /tmp/model-spec
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

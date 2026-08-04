@@ -3,13 +3,18 @@
 
 Inputs:
   - Constitution markdown (env CONSTITUTION_MD, default /tmp/claude-constitution/20260120-constitution.md)
+  - Model Spec markdown (env MODEL_SPEC_MD, default /tmp/model-spec/model_spec.md; optional)
   - responses.json (approved public responses, produced by fetch_responses.py; optional)
 
 Outputs (to env OUT_DIR, default: this script's directory):
   - index.html                 the landing page (archive overview)
   - claude-constitution.html   the constitution reader
+  - openai-model-spec.html     the OpenAI Model Spec reader (only if its source is present)
   - responses.html   approved responses, grouped by clause, with support counts
   - .github/DISCUSSION_TEMPLATE/responses.yml  (clause dropdown kept in sync)
+
+Note: the public-response / annotation layer currently applies only to the constitution.
+Other archived documents are rendered read-only.
 """
 
 import json, math, os, re, html, pathlib, datetime
@@ -18,12 +23,15 @@ import markdown
 
 HERE = pathlib.Path(__file__).parent
 SRC = pathlib.Path(os.environ.get("CONSTITUTION_MD", "/tmp/claude-constitution/20260120-constitution.md"))
+MODEL_SPEC_MD = pathlib.Path(os.environ.get("MODEL_SPEC_MD", "/tmp/model-spec/model_spec.md"))
 OUT_DIR = pathlib.Path(os.environ.get("OUT_DIR", str(HERE)))
 REPO = os.environ.get("GITHUB_REPOSITORY", "catzkat/modelcommons")  # owner/repo
 RESPONSES = HERE / "responses.json"
 INCLUDE_HYPOTHESIS = False   # set True to re-enable the Hypothes.is annotation layer
 MAX_INLINE = 3               # max highly-supported responses shown inline per section
 CONSTITUTION_HTML = "claude-constitution.html"  # filename for the constitution reader (index.html is the landing page)
+MODEL_SPEC_HTML = "openai-model-spec.html"      # filename for the OpenAI Model Spec reader
+MODEL_SPEC_VERSION = "December 18, 2025 (v2025.12.18)"
 
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 today = datetime.date.today().strftime("%B %-d, %Y")
@@ -196,6 +204,13 @@ aside.notes.open{transform:none}
   main{padding:80px 22px 90px}
   #menu-btn{display:block}
 }
+/* admonition / commentary blocks (e.g. OpenAI Model Spec) */
+.admonition{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;
+  margin:1.4em 0;padding:2px 18px;background:color-mix(in srgb, var(--accent-soft) 45%, var(--bg))}
+.admonition-title{margin:14px 0 4px;font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em}
+.admonition p{font-size:14.5px}
+.admonition>:last-child{margin-bottom:14px}
 /* landing */
 article.landing{max-width:52rem}
 .eyebrow{text-transform:uppercase;letter-spacing:.09em;font-size:12px;color:var(--faint);margin:0 0 16px;font-weight:600}
@@ -221,21 +236,24 @@ article.landing{max-width:52rem}
 }
 """
 
-def header(crumb, toc_btn=True, notes_btn=False):
+def header(crumb, toc_btn=True, notes_btn=False, links=None):
     btn = '<button id="menu-btn" aria-label="Toggle contents">Contents</button>' if toc_btn else ""
     nbtn = (f'<button id="notes-btn" aria-label="Toggle annotations">Annotations <b>{len(responses)}</b></button>'
             if notes_btn else "")
+    if links is None:  # constitution / default nav
+        links = f'<a href="/responses.html">Responses</a><a href="{new_discussion}" rel="noopener">Respond</a>'
     return f"""<header class="site">
-  <a class="wordmark" href="/">Model Commons&nbsp;<span>/ constitutions</span></a>
+  <a class="wordmark" href="/">Model Commons&nbsp;<span>/ the archive</span></a>
   <div class="doc-crumb">{crumb}</div>
-  <div class="hdr-links"><a href="/responses.html">Responses</a><a href="{new_discussion}" rel="noopener">Respond</a>{nbtn}{btn}</div>
+  <div class="hdr-links">{links}{nbtn}{btn}</div>
 </header>
 <div id="progress"></div>"""
 
 FOOTER = f"""<footer class="site">
   <div class="inner">
     <strong style="color:var(--fg)">Model Commons</strong> &mdash; the public record of AI&rsquo;s governing documents.<br>
-    An independent archive. Not affiliated with or endorsed by Anthropic. Document text reproduced verbatim under
+    An independent archive, not affiliated with or endorsed by the publishers of the documents it archives.
+    Document text reproduced verbatim under
     <a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>.
     Found an error? <a href="mailto:hello@modelcommons.org">hello@modelcommons.org</a>
   </div>
@@ -554,9 +572,104 @@ body:
       required: true
 """
 
+# ---------------- openai-model-spec.html (read-only reader) ----------------
+try:
+    ms_raw = MODEL_SPEC_MD.read_text(encoding="utf-8")
+except FileNotFoundError:
+    ms_raw = None
+
+model_spec_page = None
+if ms_raw:
+    ms_md = markdown.Markdown(extensions=["toc", "sane_lists", "attr_list", "admonition", "smarty"],
+                              extension_configs={"toc": {"toc_depth": "1-3"}})
+    ms_content = ms_md.convert(ms_raw)
+    ms_toc = ms_md.toc_tokens
+    # anchor links on headings (no response chips — the response layer is constitution-only)
+    ms_content = re.sub(
+        r'<(h[123]) id="([^"]+)">(.*?)</\1>',
+        r'<\1 id="\2">\3<a class="anchor" href="#\2" aria-label="Link to this section">&para;</a></\1>',
+        ms_content, flags=re.S)
+    # version label: track the top of the repo CHANGELOG (e.g. "## v2025.12.18"); fall back to constant
+    ms_date, ms_vtag = MODEL_SPEC_VERSION.split(" (")[0], "v2025.12.18"
+    try:
+        cl = (MODEL_SPEC_MD.parent / "CHANGELOG.md").read_text(encoding="utf-8")
+        m = re.search(r'^##\s*v(\d{4})\.(\d{2})\.(\d{2})', cl, re.M)
+        if m:
+            ms_vtag = f"v{m.group(1)}.{m.group(2)}.{m.group(3)}"
+            ms_date = datetime.date(*map(int, m.groups())).strftime("%B %-d, %Y")
+    except FileNotFoundError:
+        pass
+    ms_version = f"{ms_date} ({ms_vtag})"
+    ms_links = ('<a href="/">Archive</a>'
+                '<a href="https://model-spec.openai.com/" rel="noopener">Official version</a>')
+    model_spec_page = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OpenAI Model Spec &mdash; Model Commons</title>
+<meta name="description" content="The full text of the OpenAI Model Spec ({ms_version}), OpenAI's specification of intended model behavior, preserved by Model Commons — the public record of AI's governing documents.">
+<style>{CSS}</style>
+</head>
+<body>
+{header(f"OpenAI &middot; Model Spec &middot; {ms_vtag}", links=ms_links)}
+<div class="wrap">
+<nav class="toc" id="toc" aria-label="Table of contents">
+{toc_html(ms_toc)}
+</nav>
+<main id="main">
+<article>
+  <h1 class="doc-title">OpenAI Model Spec</h1>
+  <p class="doc-sub">OpenAI&rsquo;s specification of the intended behavior for the models behind its products and API.</p>
+  <div class="prov">
+    <span class="badge">Official text &middot; unmodified</span>
+    <span class="badge">License: CC0 1.0</span>
+    <dl>
+      <dt>Publisher</dt><dd>OpenAI</dd>
+      <dt>Version</dt><dd>{ms_version}</dd>
+      <dt>Source</dt><dd><a href="https://github.com/openai/model_spec" rel="noopener">github.com/openai/model_spec</a> &middot; <a href="https://model-spec.openai.com/" rel="noopener">model-spec.openai.com</a></dd>
+      <dt>Archive updated</dt><dd>{today}</dd>
+    </dl>
+  </div>
+{ms_content}
+</article>
+</main>
+</div>
+{FOOTER}
+<script>{BASE_JS}</script>
+</body>
+</html>
+"""
+
 # ---------------- index.html (landing) ----------------
 n_resp = len(responses)
 resp_label = f"{n_resp} public response{'s' if n_resp != 1 else ''}"
+
+# archive cards (constitution always present; model spec only if its source built)
+constitution_card = f"""  <a class="doc-card" href="/{CONSTITUTION_HTML}">
+    <div class="doc-card-main">
+      <div class="doc-card-title">Claude&rsquo;s Constitution</div>
+      <div class="doc-card-meta">Anthropic PBC &middot; Version January 20, 2026</div>
+      <p class="doc-card-desc">Anthropic&rsquo;s foundational description of Claude&rsquo;s intended values and behavior.</p>
+    </div>
+    <div class="doc-card-stats">
+      <span class="badge">CC0 1.0</span>
+      <span>{resp_label}</span>
+      <span class="doc-card-go">Read &rarr;</span>
+    </div>
+  </a>"""
+model_spec_card = f"""  <a class="doc-card" href="/{MODEL_SPEC_HTML}">
+    <div class="doc-card-main">
+      <div class="doc-card-title">OpenAI Model Spec</div>
+      <div class="doc-card-meta">OpenAI &middot; Version {ms_date}</div>
+      <p class="doc-card-desc">OpenAI&rsquo;s specification of the intended behavior for the models behind its products and API.</p>
+    </div>
+    <div class="doc-card-stats">
+      <span class="badge">CC0 1.0</span>
+      <span class="doc-card-go">Read &rarr;</span>
+    </div>
+  </a>""" if model_spec_page else ""
+archive_cards = "\n".join(c for c in (constitution_card, model_spec_card) if c)
 
 landing_page = f"""<!DOCTYPE html>
 <html lang="en">
@@ -564,7 +677,7 @@ landing_page = f"""<!DOCTYPE html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Model Commons &mdash; the public record of AI&rsquo;s governing documents</title>
-<meta name="description" content="Model Commons preserves the foundational documents that define how AI systems are meant to behave — reproduced verbatim and opened to clause-by-clause public response. Currently archiving Claude's Constitution.">
+<meta name="description" content="Model Commons preserves the foundational documents that define how AI systems are meant to behave — reproduced verbatim and opened to public response. Archiving Claude's Constitution and the OpenAI Model Spec.">
 <style>{CSS}
 footer.site{{margin-left:0}}
 </style>
@@ -579,18 +692,7 @@ footer.site{{margin-left:0}}
   behave &mdash; reproduced verbatim, and opened to public response, clause by clause.</p>
 
   <h2 class="collection-h">In the archive</h2>
-  <a class="doc-card" href="/{CONSTITUTION_HTML}">
-    <div class="doc-card-main">
-      <div class="doc-card-title">Claude&rsquo;s Constitution</div>
-      <div class="doc-card-meta">Anthropic PBC &middot; Version January 20, 2026</div>
-      <p class="doc-card-desc">Anthropic&rsquo;s foundational description of Claude&rsquo;s intended values and behavior.</p>
-    </div>
-    <div class="doc-card-stats">
-      <span class="badge">CC0 1.0</span>
-      <span>{resp_label}</span>
-      <span class="doc-card-go">Read &rarr;</span>
-    </div>
-  </a>
+{archive_cards}
   <p class="landing-hint">More documents as they&rsquo;re published.</p>
 
   <div class="landing-about">
@@ -613,11 +715,17 @@ footer.site{{margin-left:0}}
 (OUT_DIR / "index.html").write_text(landing_page, encoding="utf-8")
 (OUT_DIR / CONSTITUTION_HTML).write_text(index_page, encoding="utf-8")
 (OUT_DIR / "responses.html").write_text(responses_page, encoding="utf-8")
+if model_spec_page:
+    (OUT_DIR / MODEL_SPEC_HTML).write_text(model_spec_page, encoding="utf-8")
 tpl_dir = OUT_DIR / ".github" / "DISCUSSION_TEMPLATE"
 tpl_dir.mkdir(parents=True, exist_ok=True)
 (tpl_dir / "responses.yml").write_text(form, encoding="utf-8")
 
 print(f"index.html      {len(landing_page):,} bytes (landing)")
 print(f"{CONSTITUTION_HTML}  {len(index_page):,} bytes (constitution reader)")
+if model_spec_page:
+    print(f"{MODEL_SPEC_HTML}  {len(model_spec_page):,} bytes (model spec reader)")
+else:
+    print(f"{MODEL_SPEC_HTML}  skipped (source {MODEL_SPEC_MD} not found)")
 print(f"responses.html  {len(responses_page):,} bytes ({len(responses)} responses, threshold {THRESHOLD})")
 print(f"sections: {len(sections)}; anchors with responses: {len(by_anchor)}")

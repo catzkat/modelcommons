@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Model Commons &mdash; the public record of AI&rsquo;s governing documents</title>
-<meta name="description" content="Model Commons preserves the foundational documents that define how AI systems are meant to behave — reproduced verbatim and opened to clause-by-clause public response. Currently archiving Claude's Constitution.">
+<meta name="description" content="Model Commons preserves the foundational documents that define how AI systems are meant to behave — reproduced verbatim and opened to public response. Archiving Claude's Constitution and the OpenAI Model Spec.">
 <style>
 :root{
   --bg:#ffffff; --fg:#16181d; --muted:#6b7280; --faint:#9ca3af;
@@ -132,6 +132,13 @@ aside.notes.open{transform:none}
   main{padding:80px 22px 90px}
   #menu-btn{display:block}
 }
+/* admonition / commentary blocks (e.g. OpenAI Model Spec) */
+.admonition{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;
+  margin:1.4em 0;padding:2px 18px;background:color-mix(in srgb, var(--accent-soft) 45%, var(--bg))}
+.admonition-title{margin:14px 0 4px;font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:.05em}
+.admonition p{font-size:14.5px}
+.admonition>:last-child{margin-bottom:14px}
 /* landing */
 article.landing{max-width:52rem}
 .eyebrow{text-transform:uppercase;letter-spacing:.09em;font-size:12px;color:var(--faint);margin:0 0 16px;font-weight:600}
@@ -161,7 +168,7 @@ footer.site{margin-left:0}
 </head>
 <body>
 <header class="site">
-  <a class="wordmark" href="/">Model Commons&nbsp;<span>/ constitutions</span></a>
+  <a class="wordmark" href="/">Model Commons&nbsp;<span>/ the archive</span></a>
   <div class="doc-crumb"></div>
   <div class="hdr-links"><a href="/responses.html">Responses</a><a href="https://github.com/catzkat/modelcommons/discussions/new?category=responses" rel="noopener">Respond</a></div>
 </header>
@@ -186,6 +193,17 @@ footer.site{margin-left:0}
       <span class="doc-card-go">Read &rarr;</span>
     </div>
   </a>
+  <a class="doc-card" href="/openai-model-spec.html">
+    <div class="doc-card-main">
+      <div class="doc-card-title">OpenAI Model Spec</div>
+      <div class="doc-card-meta">OpenAI &middot; Version December 18, 2025</div>
+      <p class="doc-card-desc">OpenAI&rsquo;s specification of the intended behavior for the models behind its products and API.</p>
+    </div>
+    <div class="doc-card-stats">
+      <span class="badge">CC0 1.0</span>
+      <span class="doc-card-go">Read &rarr;</span>
+    </div>
+  </a>
   <p class="landing-hint">More documents as they&rsquo;re published.</p>
 
   <div class="landing-about">
@@ -201,7 +219,8 @@ footer.site{margin-left:0}
 <footer class="site">
   <div class="inner">
     <strong style="color:var(--fg)">Model Commons</strong> &mdash; the public record of AI&rsquo;s governing documents.<br>
-    An independent archive. Not affiliated with or endorsed by Anthropic. Document text reproduced verbatim under
+    An independent archive, not affiliated with or endorsed by the publishers of the documents it archives.
+    Document text reproduced verbatim under
     <a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener">CC0 1.0</a>.
     Found an error? <a href="mailto:hello@modelcommons.org">hello@modelcommons.org</a>
   </div>
